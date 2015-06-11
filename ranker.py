@@ -3,8 +3,8 @@ import math
 import json
 import logging
 from threading import Thread
-from bs4 import BeautifulSoup
 from Queue import PriorityQueue
+import pyteaser
 import time
 
 import rabbitcoat
@@ -113,6 +113,8 @@ class Ranker(object):
                     id = result[ID_KEY]
                     article = getArticle(id)
                     #article = self.db_articles.GetArticle(id)
+                    if (artice not from google):
+                        article = " ".join(pyteaser.Summarize(title, text))
 
                     score = self.__rank(article, weights)
                     
@@ -127,45 +129,8 @@ class Ranker(object):
                 self.queue.put((q_time, data))
                 return
                 
-    def __rank(self, data, weights=None):
-        """
-        How does it work?
-        It scans the file for positions of words, and if a word appears - 
-        the distance (in words, 1+) from the other words is logged. 
-        When the scan is over, the rank is calculated based on the distances.
-        """
-        words = weights.keys()
-        soup = BeautifulSoup(data)
-        text = soup.get_text()
-        
-        last_position = dict(zip(words, [None] * len(words)))
-        distances = dict(zip(words, [dict(last_position) for x in range(len(words))]))
-
-        # scan for words in the file, store distance between words
-        counter = 0
-        tokens = text.lower().split()
-
-        for token in tokens:
-            for word in words:
-                if token.find(word) != -1:
-                    #raw_input(token)
-                    for reference in words:
-                        if last_position[reference] is not None:
-                            distances[word][reference] = counter - last_position[reference]
-                    last_position[word] = counter
-            counter += 1
-
-        # calculate the final score
-        score = 0.0
-        max_score = 1.0
-        for word in words:
-            for reference in words:
-                distance = distances[word][reference]
-                if distance:
-                    #print 'Adding %s, %s %s %s' %(weights[word] * weights[reference] / distance, word, reference, distance)
-                    score += weights[word] * weights[reference] / distance
-                    max_score += weights[word] * weights[reference]
-        return 100 * math.pow(float(score) / max_score, WISHFUL_THINKING_EXPONENT)
+    def __rank(self, data, weights):
+        return 100.0 * sum([data.count(word) * weight for word, weight in weights)]) / (len(data.split(" ")) * max(weights.values())
         
     #TODO: Delete this?
     def Rank(self, data, properties):
